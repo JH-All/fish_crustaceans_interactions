@@ -27,214 +27,123 @@ packages <- c(
   "broom",
   "htmltools",
   "htmlwidgets",
-  "webshot2"
+  "webshot2",
+  "magick"
 )
 
 load_packages(packages)
 
 # Data -------------------------------
-data = read_excel("patterns.xlsx")
+data = read_excel("data.xlsx")
 str(data)
-data$journal = as.factor(data$journal)
-data$environment = as.factor(data$environment)
+
+# Figure 2 -----------------------------------------
 data$interaction = as.factor(data$interaction)
-levels(data$environment)
 levels(data$interaction)
 
-data %>% count(environment)
-
-
-dados = read_excel("freshwater.xlsx")
-dados$country = as.factor(dados$country)
-levels(dados$country)
-dados$environment = as.factor(dados$environment)
-levels(dados$environment)
-dados$interaction = as.factor(dados$interaction)
-levels(dados$interaction)
-
-# Figure 2A ----------------------------------
-bar_env <- data %>%
-  filter(!is.na(interaction), !is.na(environment)) %>%
-  count(interaction, environment, name = "n") %>%
-  group_by(interaction) %>%
-  mutate(prop = n / sum(n)) %>%
-  ungroup()
-
-bar_env$interaction <- factor(
-  bar_env$interaction,
-  levels = c("Competition", "Predation", "Parasitism",
-             "Commensalism", "Mutualism")
+## Figure 2A ---------------------
+my_cols <- c(
+  "Commensalism" = "grey70",
+  "Competition" = "#E6AB02",
+  "Parasitism" = "#E67E22",
+  "Predation"   = "#B23A2F"
 )
 
-fig2_A = ggplot(bar_env, aes(x = interaction, y = prop, fill = environment)) +
-  geom_col(width = 0.9, color = "black", alpha = 0.8) +
-  scale_y_continuous(labels = scales::percent_format(),
-                     expand = c(0,0)) +
-  scale_fill_manual(values = c(
-    "Freshwater" = "#FDBE85", 
-    "Marine" = "#9ECAE1"
-  )) +
-  theme_classic(base_size = 18) +
-  theme(
-    legend.position = "bottom",
-    legend.text = element_text(size = 16),
-    legend.title = element_text(size = 18),
-    legend.key.size = unit(1.2, "cm"),
-    legend.spacing.x = unit(0.5, "cm")
+fig2_A <- ggplot(data,
+                 aes(y = fct_rev(fct_infreq(interaction)),
+                     fill = interaction)) +
+  geom_bar(
+    color = "black",
+    alpha = 0.7
   ) +
+  scale_fill_manual(values = my_cols) +
   labs(
-    x = NULL,
-    y = "Percentage of studies",
-    fill = "Environment"
+    y = NULL,
+    x = "Number of studies"
+  ) +
+  theme_classic(base_size = 16) +
+  scale_x_continuous(
+    limits = c(0, 70),
+    breaks = seq(0, 70, by = 10),
+    expand = c(0, 0)
+  ) +
+  theme(
+    legend.position = "none"
   )
 
 fig2_A
 
-# Figure 2B-E ---------------------------------
-cum_studies <- data %>%
-  filter(!is.na(year), !is.na(interaction), !is.na(environment)) %>%
+## Figure 2B --------------------------------
+accum <- data %>%
   filter(interaction != "Commensalism") %>%
-  count(year, interaction, environment, name = "n_studies") %>%
-  complete(
-    year = full_seq(seq(min(data$year, na.rm = TRUE),
-                        max(data$year, na.rm = TRUE), 1), 1),
-    interaction,
-    environment,
-    fill = list(n_studies = 0)
-  ) %>%
-  arrange(interaction, environment, year) %>%
-  group_by(interaction, environment) %>%
-  mutate(cum_studies = cumsum(n_studies)) %>%
+  count(year, interaction) %>%
+  arrange(interaction, year) %>%
+  group_by(interaction) %>%
+  mutate(cumulative_studies = cumsum(n)) %>%
   ungroup()
 
-
-cum_studies$interaction <- factor(
-  cum_studies$interaction,
-  levels = c("Competition", "Predation", "Parasitism", "Mutualism")
+my_cols <- c(
+  "Competition" = "#E6AB02",
+  "Parasitism" = "#E67E22",
+  "Predation"   = "#B23A2F"
 )
 
-cum_studies$environment <- factor(
-  cum_studies$environment,
-  levels = c("Freshwater", "Marine")
-)
-
-## Figure 2B ------------------------------------------
-fig2_B = ggplot(filter(cum_studies, interaction == "Competition"),
-                aes(x = year, y = cum_studies, color = environment)) +
-  geom_line(linewidth = 1.5) +
-  scale_color_manual(values = c(
-    "Freshwater" = "#FDBE85",
-    "Marine" = "#9ECAE1"
-  )) +
-  theme_classic(base_size = 16) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(hjust = 0.5) ,
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
+fig2_B = ggplot(accum,
+                aes(x = year,
+                    y = cumulative_studies,
+                    color = interaction,
+                    group = interaction)) +
+  geom_line(linewidth = 1.1, lineend = "round") +
+  scale_color_manual(values = my_cols) +
   labs(
-    title = "Competition",
     x = "Year",
-    y = "Cumulative number \nof studies"
+    y = "Cumulative number of studies",
+    color = NULL
   ) +
-  scale_x_continuous(limits = c(1945, 2025),
-                     breaks = seq(1945, 2025, by = 10)) +
-  scale_y_continuous(limits = c(0,32),
-                     breaks = seq(0,30, by = 5))
+  theme_classic(base_size = 16) +
+  scale_x_continuous(limits = c(1960, 2025),
+                     breaks = seq(1960, 2025 , by = 5))+
+  scale_y_continuous(limits = c(0, 70),
+                     breaks = seq(0, 70, by = 10))+
+  theme(
+    legend.position = c(0.05, 0.95),
+    legend.justification = c(0, 1),
+    legend.text = element_text(size = 11),
+    axis.title = element_text(size = 13),
+    axis.text = element_text(size = 11),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.line = element_line(linewidth = 0.6),
+    plot.margin = margin(10, 15, 10, 10)
+  )+
+  guides(
+    color = guide_legend(reverse = TRUE)
+  )
 
 fig2_B
 
-## Figure 2C ------------------------------------------
-fig2_C = ggplot(filter(cum_studies, interaction == "Predation"),
-       aes(x = year, y = cum_studies, color = environment)) +
-  geom_line(linewidth = 1.5) +
-  scale_color_manual(values = c(
-    "Freshwater" = "#FDBE85",
-    "Marine" = "#9ECAE1"
-  )) +
-  theme_classic(base_size = 16) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(hjust = 0.5) ,
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  labs(
-    title = "Predation",
-    x = "Year",
-    y = "Cumulative number \nof studies"
-  ) +
-  scale_x_continuous(limits = c(1945, 2025),
-                     breaks = seq(1945, 2025, by = 10))+
-  scale_y_continuous(limits = c(0,182),
-                     breaks = seq(0, 180, by = 30))
-
-fig2_C 
-
-## Figure 2D ------------------------------------------
-fig2_D = ggplot(filter(cum_studies, interaction == "Parasitism"),
-       aes(x = year, y = cum_studies, color = environment)) +
-  geom_line(linewidth = 1.5) +
-  scale_color_manual(values = c(
-    "Freshwater" = "#FDBE85",
-    "Marine" = "#9ECAE1"
-  )) +
-  theme_classic(base_size = 16) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(hjust = 0.5) ,
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  labs(
-    title = "Parasitism",
-    x = "Year",
-    y = "Cumulative number \nof studies"
-  ) +
-  scale_x_continuous(limits = c(1945, 2025),
-                     breaks = seq(1945, 2025, by = 10))+
-  scale_y_continuous(limits = c(0,135),
-                     breaks = seq(0, 135, by = 30))
-
-fig2_D
-
-## Figure 2E ------------------------------------------
-fig2_E = ggplot(filter(cum_studies, interaction == "Mutualism",
-              environment == "Marine"),
-       aes(x = year, y = cum_studies, color = environment)) +
-  geom_line(linewidth = 1.5) +
-  scale_color_manual(values = c(
-    "Marine" = "#9ECAE1"
-  )) +
-  theme_classic(base_size = 16) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(hjust = 0.5) ,
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) +
-  labs(
-    title = "Mutualism",
-    x = "Year",
-    y = "Cumulative number \nof studies"
-  )   +
-  scale_x_continuous(limits = c(1945, 2025),
-                         breaks = seq(1945, 2025, by = 10))+
-  scale_y_continuous(limits = c(0,46),
-                     breaks = seq(0, 45, by = 10))
-
-fig2_E
-
-# Figure 2 Complete -------------------------------
-fig2_final <- (fig2_A | ((fig2_B + fig2_C) / (fig2_D + fig2_E))) +
-  plot_layout(widths = c(1.2, 1)) +
+## Figure 2 Complete ------------------------
+fig2_c = (fig2_A + fig2_B) +
   plot_annotation(tag_levels = "A")
 
-fig2_final
+fig2_c
 
-ggsave("Figure_2.jpg", fig2_final, width = 15, height = 8)
+ggsave("Figure_2.jpg", fig2_c, width = 12, height = 6, dpi = 300)
 
-# Figure 3 --------------------------
-dados_clean <- dados %>%
-  filter(!is.na(country), !is.na(interaction)) %>%
-  mutate(country = str_split(country, ";")) %>%
+# Environments ------------------
+data$environment = as.factor(data$environment )
+levels(data$environment )
+
+# Figure 3 -----------------------------------
+dados_clean <- data %>%
+  filter(
+    !is.na(country),
+    !is.na(interaction),
+    interaction != "Commensalism"
+  ) %>%
+  mutate(
+    interaction = as.character(interaction),
+    country = str_split(country, ";")
+  ) %>%
   unnest(country) %>%
   mutate(country = str_trim(country))
 
@@ -243,7 +152,7 @@ country_counts <- dados_clean %>%
   mutate(country = dplyr::recode(
     country,
     "USA" = "United States of America",
-    "United Kingdom" = "United Kingdom",
+    "UK" = "United Kingdom",
     "Czech Republic" = "Czechia",
     "Noruega" = "Norway",
     "Suécia" = "Sweden"
@@ -252,7 +161,18 @@ country_counts <- dados_clean %>%
 world <- ne_countries(scale = "medium", returnclass = "sf") %>%
   filter(name != "Antarctica")
 
-interactions <- sort(unique(country_counts$interaction))
+countries_no_match <- country_counts %>%
+  distinct(country) %>%
+  anti_join(
+    world %>% 
+      st_drop_geometry() %>% 
+      distinct(name),
+    by = c("country" = "name")
+  )
+
+countries_no_match
+
+interactions <- c("Competition", "Predation", "Parasitism")
 
 world_by_interaction <- tidyr::crossing(
   interaction = interactions,
@@ -261,22 +181,25 @@ world_by_interaction <- tidyr::crossing(
   st_as_sf()
 
 map_data <- world_by_interaction %>%
-  left_join(country_counts, by = c("interaction", "name" = "country"))
+  left_join(
+    country_counts,
+    by = c("interaction", "name" = "country")
+  ) %>%
+  mutate(
+    interaction = factor(
+      interaction,
+      levels = c("Competition", "Predation", "Parasitism")
+    )
+  )
 
-map_data$interaction <- factor(
-  map_data$interaction,
-  levels = c("Competition", "Predation", "Parasitism")
-)
-
-
-fig3 = ggplot(map_data) +
+fig3 <- ggplot(map_data) +
   geom_sf(aes(fill = n_studies), color = "gray40", linewidth = 0.2) +
   scale_fill_gradient(
-    low = "#FDBE85",  
-    high = "darkred", 
+    low = "#FDBE85",
+    high = "darkred",
     na.value = "gray90",
     limits = c(0, max(map_data$n_studies, na.rm = TRUE))
-  )+
+  ) +
   facet_wrap(~ interaction, ncol = 1) +
   coord_sf(
     crs = "+proj=robin",
@@ -295,593 +218,392 @@ fig3 = ggplot(map_data) +
     strip.text = element_text(size = 16),
     plot.margin = margin(5, 5, 5, 5)
   ) +
-  labs(fill = "Studies \nnumber")
+  labs(fill = "Studies\nnumber")
 
 fig3
 
-ggsave("Figure_3.jpg", fig3)
+ggsave("Figure_3.jpg", fig3, dpi = 300)
 
-# Figure 4  ------------------------------------------
-## Data ---------------------------------------------
-population_size <- read_csv("population_size.csv")
-summary(population_size$Year)
-str(population_size$Population)
 
+# Figure 4 --------------------------------
 land_area <- read_csv("land_area_km.csv")
-summary(land_area$Year)
-str(land_area$`Land area (sq. km)`)
-
-country_summary <- dados_clean %>%
-  mutate(country = dplyr::recode(
-    country,
-    "USA" = "United States",
-    "Czech Republic" = "Czechia",
-    "Suécia" = "Sweden",
-    "Noruega" = "Norway",
-    "Taiwan" = "Taiwan"
-  )) %>%
-  count(country, interaction, name = "n_studies") %>%
-  pivot_wider(
-    names_from = interaction,
-    values_from = n_studies,
-    values_fill = 0
-  ) %>%
-  mutate(
-    total_studies = Competition + Predation + Parasitism
-  ) %>%
-  dplyr::select(country, total_studies, Competition, Predation, Parasitism) %>%
-  arrange(desc(total_studies))
-
-population_2023 <- population_size %>%
-  filter(Year == 2023) %>%
-  dplyr::select(
-    country = Entity,
-    population_2023 = Population
-  )
-
 
 land_area_2023 <- land_area %>%
   filter(Year == 2023) %>%
-  dplyr::select(
+  transmute(
     country = Entity,
-    land_area_km2_2023 = `Land area (sq. km)`
+    land_area_km2 = `Land area (sq. km)`
   )
 
-
-
-population_2023 <- population_2023 %>%
-  filter(country %in% country_summary$country)
-
-land_area_2023 <- land_area_2023 %>%
-  filter(country %in% country_summary$country)
-
-
-country_summary_final <- country_summary %>%
-  left_join(population_2023, by = "country") %>%
-  left_join(land_area_2023, by = "country") 
-
-colSums(is.na(country_summary_final))
-
-country_summary_final %>%
-  filter(is.na(population_2023)) %>%
-  dplyr::select(country)
-
-country_summary_final %>%
-  filter(is.na(land_area_km2_2023)) %>%
-  dplyr::select(country)
-
-country_summary_final <- country_summary_final %>%
+dados_clean <- data %>%
+  filter(
+    !is.na(country),
+    !is.na(interaction),
+    interaction != "Commensalism"
+  ) %>%
   mutate(
-    log_pop = log10(population_2023),
-    log_area = log10(land_area_km2_2023),
-    
-    log_pop_scaled = as.numeric(scale(log_pop)),
-    log_area_scaled = as.numeric(scale(log_area))
+    interaction = as.character(interaction),
+    country = str_split(country, ";")
+  ) %>%
+  unnest(country) %>%
+  mutate(
+    country = str_trim(country),
+    country = dplyr::recode(
+      country,
+      "USA" = "United States",
+      "UK" = "United Kingdom",
+      "Czech Republic" = "Czechia",
+      "Noruega" = "Norway",
+      "Suécia" = "Sweden"
+    )
   )
 
 
-## Models ---------------------------------
-m_total_pop <- glm.nb(total_studies ~ log_pop_scaled, data = country_summary_final)
-summary(m_total_pop)
-m_comp_pop  <- glm.nb(Competition ~ log_pop_scaled, data = country_summary_final)
-summary(m_comp_pop)
-m_pred_pop  <- glm.nb(Predation ~ log_pop_scaled, data = country_summary_final)
-summary(m_pred_pop)
-m_para_pop  <- glm.nb(Parasitism ~ log_pop_scaled, data = country_summary_final)
-summary(m_para_pop)
+country_area_summary <- dados_clean %>%
+  count(country, interaction, name = "n_studies") %>%
+  left_join(land_area_2023, by = "country") %>%
+  mutate(
+    studies_per_million_km2 = n_studies / (land_area_km2 / 1e6)
+  )
+
+country_area_summary %>%
+  arrange(interaction, desc(studies_per_million_km2))
 
 
-m_total_area <- glm.nb(total_studies ~ log_area_scaled, data = country_summary_final)
-summary(m_total_area)
-m_comp_area  <- glm.nb(Competition ~ log_area_scaled, data = country_summary_final)
-summary(m_comp_area)
-m_pred_area  <- glm.nb(Predation ~ log_area_scaled, data = country_summary_final)
-summary(m_pred_area)
-m_para_area  <- glm.nb(Parasitism ~ log_area_scaled, data = country_summary_final)
-summary(m_para_area)
+country_area_wide <- country_area_summary %>%
+  dplyr::select(country, interaction, studies_per_million_km2) %>%
+  pivot_wider(
+    names_from = interaction,
+    values_from = studies_per_million_km2,
+    values_fill = 0
+  )
 
+country_area_wide
 
-extract_coef <- function(model, response, predictor){
-  tidy(model) %>%
-    filter(term != "(Intercept)") %>%
-    mutate(
-      response = response,
-      predictor = predictor,
-      conf.low = estimate - 1.96 * std.error,
-      conf.high = estimate + 1.96 * std.error
+country_area_total <- dados_clean %>%
+  count(country, name = "total_studies") %>%
+  left_join(land_area_2023, by = "country") %>%
+  mutate(
+    total_studies_per_million_km2 =
+      total_studies / (land_area_km2 / 1e6)
+  ) %>%
+  arrange(desc(total_studies_per_million_km2))
+
+country_area_total
+
+map_data_area <- world_by_interaction %>%
+  left_join(
+    country_area_summary,
+    by = c("interaction", "name" = "country")
+  ) %>%
+  mutate(
+    interaction = factor(
+      interaction,
+      levels = c("Competition", "Predation", "Parasitism")
     )
+  )
+
+fig4 <- ggplot(map_data_area) +
+  geom_sf(aes(fill = studies_per_million_km2),
+          color = "gray40",
+          linewidth = 0.2) +
+  scale_fill_gradient(
+    low = "#FDBE85",
+    high = "darkred",
+    na.value = "gray90",
+    limits = c(
+      0,
+      max(map_data_area$studies_per_million_km2, na.rm = TRUE)
+    )
+  ) +
+  facet_wrap(~ interaction, ncol = 1) +
+  coord_sf(
+    crs = "+proj=robin",
+    expand = FALSE
+  ) +
+  theme_void(base_size = 18) +
+  theme(
+    legend.position = "right",
+    legend.title = element_text(size = 16),
+    legend.text = element_text(size = 12),
+    legend.margin = margin(l = 10),
+    legend.box.margin = margin(l = 10),
+    legend.key.height = unit(2, "cm"),
+    legend.key.width = unit(0.6, "cm"),
+    panel.spacing = unit(0.6, "cm"),
+    strip.text = element_text(size = 16),
+    plot.margin = margin(5, 5, 5, 5)
+  ) +
+  labs(fill = "Studies per\nmillion km²")
+
+fig4
+
+ggsave("Figure_4.jpg", fig4, dpi = 300)
+
+head(data$fish)
+head(data$crustacean)
+head(data$if_predation_who)
+head(data$interaction)
+
+# Figure 5 & 6 ----------------------
+my_colour <- '
+d3.scaleOrdinal()
+  .domain(["Fish", "Crustacean"])
+  .range(["#6BAED6", "#FDBE85"])
+'
+
+prepare_sankey <- function(df, source_col, target_col,
+                           source_group = "Fish",
+                           target_group = "Crustacean") {
+  
+  links <- df %>%
+    count({{ source_col }}, {{ target_col }}, name = "value") %>%
+    rename(
+      source_name = {{ source_col }},
+      target_name = {{ target_col }}
+    ) %>%
+    mutate(
+      source_name = ifelse(source_name == "Assemblage", 
+                           paste(source_group, "assemblage"), 
+                           source_name),
+      target_name = ifelse(target_name == "Assemblage", 
+                           paste(target_group, "assemblage"), 
+                           target_name)
+    )
+  
+  source_nodes <- links %>%
+    distinct(name = source_name) %>%
+    mutate(group = source_group)
+  
+  target_nodes <- links %>%
+    distinct(name = target_name) %>%
+    mutate(group = target_group)
+  
+  nodes <- bind_rows(source_nodes, target_nodes) %>%
+    distinct(name, .keep_all = TRUE)
+  
+  links_d3 <- links %>%
+    mutate(
+      source = match(source_name, nodes$name) - 1,
+      target = match(target_name, nodes$name) - 1
+    ) %>%
+    dplyr::select(source, target, value)
+  
+  list(nodes = nodes, links = links_d3)
 }
 
-
-coef_df <- bind_rows(
-  extract_coef(m_total_pop, "Total", "Population"),
-  extract_coef(m_comp_pop,  "Competition", "Population"),
-  extract_coef(m_pred_pop,  "Predation", "Population"),
-  extract_coef(m_para_pop,  "Parasitism", "Population"),
+save_sankey <- function(sankey_data, title, html_file, png_file) {
   
-  extract_coef(m_total_area, "Total", "Area"),
-  extract_coef(m_comp_area,  "Competition", "Area"),
-  extract_coef(m_pred_area,  "Predation", "Area"),
-  extract_coef(m_para_area,  "Parasitism", "Area")
-)
-
-coef_df$response <- factor(
-  coef_df$response,
-  levels = c("Parasitism",
-             "Predation", "Competition", "Total")
-  
-)
-
-coef_df$predictor <- factor(
-  coef_df$predictor,
-  levels = c("Population", "Area")
-)
-
-## FigA --------------------------------------
-top5_raw <- country_summary_final %>%
-  arrange(desc(total_studies)) %>%
-  slice(1:5)
-
-
-fig_new_A = ggplot(top5_raw,
-                   aes(x = reorder(country, total_studies),
-                       y = total_studies)) +
-  geom_col(fill = "#FDBE85", color = "black",
-           alpha = 0.7) +
-  coord_flip() +
-  theme_classic(base_size = 16) +
-  labs(
-    x = NULL,
-    y = "Total number of studies"
-  )+
-  scale_y_continuous(expand = c(0,0),
-                     limits = c(0, 80))
-
-fig_new_A
-
-## FigB --------------------------------
-country_summary_final <- country_summary_final %>%
-  mutate(
-    studies_per_person = total_studies / population_2023,
-    studies_per_million_people = (total_studies / population_2023) * 1e6,
-    studies_per_km2 = total_studies / land_area_km2_2023
-  )
-
-top5_pop <- country_summary_final %>%
-  filter(!is.na(studies_per_million_people)) %>%
-  arrange(desc(studies_per_million_people)) %>%
-  slice(1:5)
-
-
-fig_new_B = ggplot(top5_pop,
-                   aes(x = reorder(country, studies_per_million_people),
-                       y = studies_per_million_people)) +
-  geom_col(fill = "#FDBE85", color = "black",
-           alpha = 0.7) +
-  coord_flip() +
-  theme_classic(base_size = 16) +
-  labs(
-    x = NULL,
-    y = "Studies per million people"
-  )+
-  scale_y_continuous(expand = c(0,0),
-                     limits = c(0, 4))
-
-fig_new_B
-
-## FigC --------------------------------
-top5_area <- country_summary_final %>%
-  filter(!is.na(studies_per_km2)) %>%
-  arrange(desc(studies_per_km2)) %>%
-  slice(1:5)
-
-
-fig_new_C = ggplot(top5_area,
-                   aes(x = reorder(country, studies_per_km2),
-                       y = studies_per_km2)) +
-  geom_col(fill = "#FDBE85", color = "black",
-           alpha = 0.7) +
-  coord_flip() +
-  theme_classic(base_size = 16) +
-  labs(
-    x = NULL,
-    y = "Studies per km²"
-  )+
-  scale_y_continuous(expand = c(0,0),
-                     limits = c(0, 0.001))
-
-fig_new_C
-
-## FigD ------------------------------
-fig_new_D = ggplot(coef_df, aes(x = response, y = estimate, color = predictor)) +
-  geom_errorbar(aes(ymin = conf.low,
-                    ymax = conf.high),
-                width = 0.55,
-                position = position_dodge(width = 0.55) ,
-                size = 1.5) +
-  geom_point(size = 5.5, position = position_dodge(width = 0.55)) +
-  geom_hline(yintercept = 0, linetype = "dashed") +
-  scale_y_continuous(limits = c(-2, 2),
-                     breaks = seq(-2, 2, by = 0.5)) +
-  scale_color_manual(
-    values = c(
-      "Population" = "#FDBE85",
-      "Area" = "darkred"
-    ),
-    breaks = c("Area", "Population")
-  )+
-  theme_classic(base_size = 16) +
-  theme(
-    legend.position = c(0.02, 0.98),
-    legend.justification = c(0, 1)
-  ) +
-  labs(
-    x = NULL,
-    y = "Coefficient (95% CI)",
-    color = "Predictor"
-  ) +
-  coord_flip()
-
-fig_new_D
-
-## Complete -----------------------------------
-fig_4 = (fig_new_A + fig_new_B) / (fig_new_C + fig_new_D)+
-  plot_layout(widths = c(1.2, 1)) +
-  plot_annotation(tag_levels = "A")
-
-fig_4
-
-ggsave("Figure_4.jpg", fig_4, width = 13, height = 8)
-
-# Figure 5 -------------------------------
-links_comp <- dados %>%
-  filter(interaction == "Competition") %>%
-  filter(!is.na(fish), !is.na(crustacean)) %>%
-  count(fish, crustacean, name = "value") %>%
-  mutate(
-    fish = ifelse(fish == "Assemblage", "Fish assemblage", fish),
-    crustacean = ifelse(crustacean == "Assemblage", "Crustacean assemblage", crustacean)
-  )
-
-n_links <- nrow(links_comp)
-n_links
-
-fish_nodes <- links_comp %>%
-  distinct(name = fish) %>%
-  mutate(group = "Fish")
-
-crust_nodes <- links_comp %>%
-  distinct(name = crustacean) %>%
-  mutate(group = "Crustacean")
-
-nodes <- bind_rows(fish_nodes, crust_nodes)
-
-links_d3 <- links_comp %>%
-  mutate(
-    source = match(fish, nodes$name) - 1,
-    target = match(crustacean, nodes$name) - 1
-  ) %>%
-  dplyr::select(source, target, value)
-
-my_colour <- '
-d3.scaleOrdinal()
-  .domain(["Fish", "Crustacean"])
-  .range(["#6BAED6", "#FDBE85"])
-'
-
-sankeyNetwork(
-  Links = links_d3,
-  Nodes = nodes,
-  Source = "source",
-  Target = "target",
-  Value = "value",
-  NodeID = "name",
-  NodeGroup = "group",
-  colourScale = my_colour,
-  fontSize = 16,
-  nodeWidth = 30,
-  sinksRight = TRUE
-)
-
-widget <- browsable(
-  tagList(
-    tags$h2(
-      "Competition",
-      style = "text-align: center; margin-bottom: 5px; font-weight: bold;"
-    ),
-    sankeyNetwork(
-      Links = as.data.frame(links_d3),
-      Nodes = as.data.frame(nodes),
-      Source = "source",
-      Target = "target",
-      Value = "value",
-      NodeID = "name",
-      NodeGroup = "group",
-      colourScale = my_colour,
-      fontSize = 16,
-      nodeWidth = 30,
-      sinksRight = TRUE,
-      width = "100%",
-      height = 700
+  widget <- browsable(
+    tagList(
+      tags$h2(
+        title,
+        style = "
+          text-align: left;
+          margin-left: 25px;
+          margin-bottom: 5px;
+          font-weight: bold;
+          font-family: Arial;
+        "
+      ),
+      sankeyNetwork(
+        Links = as.data.frame(sankey_data$links),
+        Nodes = as.data.frame(sankey_data$nodes),
+        Source = "source",
+        Target = "target",
+        Value = "value",
+        NodeID = "name",
+        NodeGroup = "group",
+        colourScale = my_colour,
+        fontSize = 16,
+        nodeWidth = 30,
+        sinksRight = TRUE,
+        width = "100%",
+        height = 700
+      )
     )
   )
+  
+  htmltools::save_html(widget, file = html_file)
+  
+  webshot2::webshot(
+    url = html_file,
+    file = png_file,
+    vwidth = 1400,
+    vheight = 900,
+    zoom = 3
+  )
+}
+
+## Figure 5A — Competition -----------------------------
+
+fig5A_data <- data %>%
+  filter(interaction == "Competition") %>%
+  filter(!is.na(fish), !is.na(crustacean)) %>%
+  prepare_sankey(fish, crustacean)
+
+save_sankey(
+  fig5A_data,
+  "A) Competition",
+  "figure5A_competition.html",
+  "figure5A_competition.png"
 )
 
-htmltools::save_html(widget, file = "competition_sankey.html")
+## Figure 5B — Parasitism ------------------------------
 
-file.exists("competition_sankey.html")
+fig5B_data <- data %>%
+  filter(interaction == "Parasitism") %>%
+  filter(!is.na(fish), !is.na(crustacean)) %>%
+  prepare_sankey(fish, crustacean)
 
-webshot2::webshot(
-  url = "competition_sankey.html",
-  file = "Figure_5.png",
-  vwidth = 1200,
-  vheight = 900,
-  zoom = 3
+save_sankey(
+  fig5B_data,
+  "B) Parasitism",
+  "figure5B_parasitism.html",
+  "figure5B_parasitism.png"
 )
 
-# Figure 6 ------------------------------------------------
-my_colour <- '
-d3.scaleOrdinal()
-  .domain(["Fish", "Crustacean"])
-  .range(["#6BAED6", "#FDBE85"])
-'
+## Figure 6A — Predation, fish as predator -------------
 
-links_pred_F <- dados %>%
+fig6A_data <- data %>%
   filter(interaction == "Predation") %>%
   filter(!is.na(fish), !is.na(crustacean), !is.na(if_predation_who)) %>%
   filter(if_predation_who == "F") %>%
-  count(fish, crustacean, name = "value") %>%
-  mutate(
-    fish = ifelse(fish == "Assemblage", "Fish assemblage", fish),
-    crustacean = ifelse(crustacean == "Assemblage", "Crustacean assemblage", crustacean)
-  )
+  prepare_sankey(fish, crustacean)
 
-n_links_2 <- nrow(links_pred_F)
-n_links_2
-
-fish_nodes_F <- links_pred_F %>%
-  distinct(name = fish) %>%
-  mutate(group = "Fish")
-
-crust_nodes_F <- links_pred_F %>%
-  distinct(name = crustacean) %>%
-  mutate(group = "Crustacean")
-
-nodes_pred_F <- bind_rows(fish_nodes_F, crust_nodes_F)
-
-links_pred_F_d3 <- links_pred_F %>%
-  mutate(
-    source = match(fish, nodes_pred_F$name) - 1,
-    target = match(crustacean, nodes_pred_F$name) - 1
-  ) %>%
-  dplyr::select(source, target, value)
-
-sankeyNetwork(
-  Links = as.data.frame(links_pred_F_d3),
-  Nodes = as.data.frame(nodes_pred_F),
-  Source = "source",
-  Target = "target",
-  Value = "value",
-  NodeID = "name",
-  NodeGroup = "group",
-  colourScale = my_colour,
-  fontSize = 16,
-  nodeWidth = 30,
-  sinksRight = TRUE
+save_sankey(
+  fig6A_data,
+  "A) Predation — fish as predator",
+  "figure6A_predation_fish.html",
+  "figure6A_predation_fish.png"
 )
 
+## Figure 6B — Predation, crustacean as predator --------
 
-widget_pred_F <- browsable(
-  tagList(
-    tags$h2("Predation - fish as the predator",
-            style = "text-align: center; margin-bottom: 5px; font-weight: bold;"),
-    sankeyNetwork(
-      Links = as.data.frame(links_pred_F_d3),
-      Nodes = as.data.frame(nodes_pred_F),
-      Source = "source",
-      Target = "target",
-      Value = "value",
-      NodeID = "name",
-      NodeGroup = "group",
-      colourScale = my_colour,
-      fontSize = 16,
-      nodeWidth = 30,
-      sinksRight = TRUE,
-      width = "100%",
-      height = 700
-    )
-  )
-)
-
-htmltools::save_html(widget_pred_F, "predation_fish_predator.html")
-
-webshot(
-  "predation_fish_predator.html",
-  file = "Figure_6.png",
-  vwidth = 1200,
-  vheight = 900,
-  zoom = 3
-)
-
-# Figure 7 ---------------------------------------------------
-links_pred_C <- dados %>%
+fig6B_data <- data %>%
   filter(interaction == "Predation") %>%
   filter(!is.na(fish), !is.na(crustacean), !is.na(if_predation_who)) %>%
   filter(if_predation_who == "C") %>%
-  count(crustacean, fish, name = "value") %>%
-  mutate(
-    fish = ifelse(fish == "Assemblage", "Fish assemblage", fish),
-    crustacean = ifelse(crustacean == "Assemblage", "Crustacean assemblage", crustacean)
+  prepare_sankey(
+    crustacean, fish,
+    source_group = "Crustacean",
+    target_group = "Fish"
   )
 
-n_links_3 <- nrow(links_pred_C)
-n_links_3
-
-
-crust_nodes_C <- links_pred_C %>%
-  distinct(name = crustacean) %>%
-  mutate(group = "Crustacean")
-
-fish_nodes_C <- links_pred_C %>%
-  distinct(name = fish) %>%
-  mutate(group = "Fish")
-
-nodes_pred_C <- bind_rows(crust_nodes_C, fish_nodes_C)
-
-links_pred_C_d3 <- links_pred_C %>%
-  mutate(
-    source = match(crustacean, nodes_pred_C$name) - 1,
-    target = match(fish, nodes_pred_C$name) - 1
-  ) %>%
-  dplyr::select(source, target, value)
-
-
-sankeyNetwork(
-  Links = as.data.frame(links_pred_C_d3),
-  Nodes = as.data.frame(nodes_pred_C),
-  Source = "source",
-  Target = "target",
-  Value = "value",
-  NodeID = "name",
-  NodeGroup = "group",
-  colourScale = my_colour,
-  fontSize = 16,
-  nodeWidth = 30,
-  sinksRight = TRUE
+save_sankey(
+  fig6B_data,
+  "B) Predation — crustacean as predator",
+  "figure6B_predation_crustacean.html",
+  "figure6B_predation_crustacean.png"
 )
 
+## Figure 5 Complete ----------------------
 
-widget_pred_C <- browsable(
-  tagList(
-    tags$h2("Predation - crustacean as the predator",
-            style = "text-align: center; margin-bottom: 5px; font-weight: bold;"),
-    sankeyNetwork(
-      Links = as.data.frame(links_pred_C_d3),
-      Nodes = as.data.frame(nodes_pred_C),
-      Source = "source",
-      Target = "target",
-      Value = "value",
-      NodeID = "name",
-      NodeGroup = "group",
-      colourScale = my_colour,
-      fontSize = 16,
-      nodeWidth = 30,
-      sinksRight = TRUE,
-      width = "100%",
-      height = 700
+figure5_final <- image_append(
+  c(
+    image_read("figure5A_competition.png"),
+    image_read("figure5B_parasitism.png")
+  ),
+  stack = TRUE
+)
+
+image_write(
+  figure5_final,
+  "Figure_5_AB.png"
+)
+
+## Figure 6 Complete  ----------
+
+figure6_final <- image_append(
+  c(
+    image_read("figure6A_predation_fish.png"),
+    image_read("figure6B_predation_crustacean.png")
+  ),
+  stack = TRUE
+)
+
+image_write(
+  figure6_final,
+  "Figure_6_AB.png"
+)
+
+# Figure 7 -------------------------------------------
+data$status_fish = as.factor(data$status_fish)
+levels(data$status_fish)
+data$status_crust = as.factor(data$status_crust)
+levels(data$status_crust)
+
+
+status_summary <- data %>%
+  filter(!is.na(status_fish), !is.na(status_crust)) %>%
+  mutate(
+    status_group = case_when(
+      status_fish == "Exotic" & status_crust == "Exotic" ~ "Both exotic",
+      status_fish == "Exotic" & status_crust == "Native" ~ "Only fish exotic",
+      status_fish == "Native" & status_crust == "Exotic" ~ "Only crustacean exotic",
+      status_fish == "Native" & status_crust == "Native" ~ "Both native"
+    )
+  ) %>%
+  count(status_group, interaction, name = "n_studies")
+
+my_cols <- c(
+  "Commensalism" = "grey70",
+  "Competition"  = "#E6AB02",
+  "Parasitism"   = "#E67E22",
+  "Predation"    = "#B23A2F"
+)
+
+status_summary$interaction <- factor(
+  status_summary$interaction,
+  levels = names(my_cols)
+)
+
+fig7 = ggplot(
+  status_summary,
+  aes(
+    x = n_studies,
+    y = fct_reorder(status_group, n_studies, sum),
+    fill = interaction
+  )
+) +
+  geom_col(color = "black", alpha = 0.8) +
+  scale_fill_manual(
+    values = my_cols,
+    limits = names(my_cols),
+    breaks = names(my_cols),
+    drop = FALSE
+  ) +
+  guides(
+    fill = guide_legend(reverse = TRUE)
+  ) +
+  labs(
+    x = "Number of studies",
+    y = NULL,
+    fill = "Interaction type"
+  ) +
+  theme_classic(base_size = 18) +
+  theme(
+    legend.position = c(0.99, 0.02),
+    legend.justification = c(1, 0)
+  )+
+  scale_x_continuous(expand = c(0,0))
+
+fig7
+
+ggsave("Figure_7.jpg", fig7, dpi = 300)
+
+# Binomial test ----------------------
+data_glm <- data %>%
+  filter(!is.na(status_fish), !is.na(status_crust)) %>%
+  mutate(
+    has_exotic = ifelse(
+      status_fish == "Exotic" | status_crust == "Exotic",
+      1, 0
     )
   )
-)
 
-
-htmltools::save_html(widget_pred_C, "predation_crustacean_predator.html")
-
-webshot(
-  "predation_crustacean_predator.html",
-  file = "Figure_7.png",
-  vwidth = 1200,
-  vheight = 900,
-  zoom = 3
-)
-
-# Figure 8 -------------------------------------------------
-links_par <- dados %>%
-  filter(interaction == "Parasitism") %>%
-  filter(!is.na(fish), !is.na(crustacean)) %>%
-  count(fish, crustacean, name = "value") %>%
-  mutate(
-    fish = ifelse(fish == "Assemblage", "Fish assemblage", fish),
-    crustacean = ifelse(crustacean == "Assemblage", "Crustacean assemblage", crustacean)
-  )
-
-n_links_4 <- nrow(links_par)
-n_links_4
-
-fish_nodes_par <- links_par %>%
-  distinct(name = fish) %>%
-  mutate(group = "Fish")
-
-crust_nodes_par <- links_par %>%
-  distinct(name = crustacean) %>%
-  mutate(group = "Crustacean")
-
-nodes_par <- bind_rows(fish_nodes_par, crust_nodes_par)
-
-links_par_d3 <- links_par %>%
-  mutate(
-    source = match(fish, nodes_par$name) - 1,
-    target = match(crustacean, nodes_par$name) - 1
-  ) %>%
-  dplyr::select(source, target, value)
-
-my_colour <- '
-d3.scaleOrdinal()
-  .domain(["Fish", "Crustacean"])
-  .range(["#6BAED6", "#FDBE85"])
-'
-
-sankeyNetwork(
-  Links = links_par_d3,
-  Nodes = nodes_par,
-  Source = "source",
-  Target = "target",
-  Value = "value",
-  NodeID = "name",
-  NodeGroup = "group",
-  colourScale = my_colour,
-  fontSize = 16,
-  nodeWidth = 30,
-  sinksRight = TRUE
-)
-
-widget_par <- browsable(
-  tagList(
-    tags$h2("Parasitism",
-            style = "text-align: center; margin-bottom: 5px; font-weight: bold;"),
-    sankeyNetwork(
-      Links = as.data.frame(links_par_d3),
-      Nodes = as.data.frame(nodes_par),
-      Source = "source",
-      Target = "target",
-      Value = "value",
-      NodeID = "name",
-      NodeGroup = "group",
-      colourScale = my_colour,
-      fontSize = 16,
-      nodeWidth = 30,
-      sinksRight = TRUE,
-      width = "100%",
-      height = 700
-    )
-  )
-)
-
-htmltools::save_html(widget_par, "parasitism_sankey.html")
-
-webshot(
-  "parasitism_sankey.html",
-  file = "Figure_8.png",
-  vwidth = 1200,
-  vheight = 900,
-  zoom = 3
+binom.test(
+  sum(data_glm$has_exotic),
+  nrow(data_glm),
+  p = 0.5
 )
