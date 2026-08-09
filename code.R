@@ -538,9 +538,9 @@ status_summary <- data %>%
   filter(!is.na(status_fish), !is.na(status_crust)) %>%
   mutate(
     status_group = case_when(
-      status_fish == "Exotic" & status_crust == "Exotic" ~ "Both exotic",
-      status_fish == "Exotic" & status_crust == "Native" ~ "Only fish exotic",
-      status_fish == "Native" & status_crust == "Exotic" ~ "Only crustacean exotic",
+      status_fish == "Exotic" & status_crust == "Exotic" ~ "Both non-native",
+      status_fish == "Exotic" & status_crust == "Native" ~ "Only fish non-native",
+      status_fish == "Native" & status_crust == "Exotic" ~ "Only crustacean non-native",
       status_fish == "Native" & status_crust == "Native" ~ "Both native"
     )
   ) %>%
