@@ -218,14 +218,14 @@ fig3 <- ggplot(map_data) +
     strip.text = element_text(size = 16),
     plot.margin = margin(5, 5, 5, 5)
   ) +
-  labs(fill = "Studies\nnumber")
+  labs(fill = "Number\nof studies")
 
 fig3
 
 ggsave("Figure_3.jpg", fig3, dpi = 300)
 
 
-# Figure 4 --------------------------------
+# Figure S1 --------------------------------
 land_area <- read_csv("land_area_km.csv")
 
 land_area_2023 <- land_area %>%
@@ -303,7 +303,7 @@ map_data_area <- world_by_interaction %>%
     )
   )
 
-fig4 <- ggplot(map_data_area) +
+fig_s1 <- ggplot(map_data_area) +
   geom_sf(aes(fill = studies_per_million_km2),
           color = "gray40",
           linewidth = 0.2) +
@@ -336,16 +336,16 @@ fig4 <- ggplot(map_data_area) +
   ) +
   labs(fill = "Studies per\nmillion km²")
 
-fig4
+fig_s1
 
-ggsave("Figure_4.jpg", fig4, dpi = 300)
+ggsave("Figure_S1.jpg", fig_s1, dpi = 300)
 
 head(data$fish)
 head(data$crustacean)
 head(data$if_predation_who)
 head(data$interaction)
 
-# Figure 5 & 6 ----------------------
+# Figure 4 & 5 ----------------------
 my_colour <- '
 d3.scaleOrdinal()
   .domain(["Fish", "Crustacean"])
@@ -435,52 +435,52 @@ save_sankey <- function(sankey_data, title, html_file, png_file) {
   )
 }
 
-## Figure 5A — Competition -----------------------------
+## Figure 4A — Competition -----------------------------
 
-fig5A_data <- data %>%
+fig4A_data <- data %>%
   filter(interaction == "Competition") %>%
   filter(!is.na(fish), !is.na(crustacean)) %>%
   prepare_sankey(fish, crustacean)
 
 save_sankey(
-  fig5A_data,
+  fig4A_data,
   "A) Competition",
-  "figure5A_competition.html",
-  "figure5A_competition.png"
+  "figure4A_competition.html",
+  "figure4A_competition.png"
 )
 
-## Figure 5B — Parasitism ------------------------------
+## Figure 4B — Parasitism ------------------------------
 
-fig5B_data <- data %>%
+fig4B_data <- data %>%
   filter(interaction == "Parasitism") %>%
   filter(!is.na(fish), !is.na(crustacean)) %>%
   prepare_sankey(fish, crustacean)
 
 save_sankey(
-  fig5B_data,
+  fig4B_data,
   "B) Parasitism",
-  "figure5B_parasitism.html",
-  "figure5B_parasitism.png"
+  "figure4B_parasitism.html",
+  "figure4B_parasitism.png"
 )
 
-## Figure 6A — Predation, fish as predator -------------
+## Figure 5A — Predation, fish as predator -------------
 
-fig6A_data <- data %>%
+fig5A_data <- data %>%
   filter(interaction == "Predation") %>%
   filter(!is.na(fish), !is.na(crustacean), !is.na(if_predation_who)) %>%
   filter(if_predation_who == "F") %>%
   prepare_sankey(fish, crustacean)
 
 save_sankey(
-  fig6A_data,
-  "A) Predation — fish as predator",
-  "figure6A_predation_fish.html",
-  "figure6A_predation_fish.png"
+  fig5A_data,
+  "A) Predation — fishes as predators",
+  "figure5A_predation_fish.html",
+  "figure5A_predation_fish.png"
 )
 
-## Figure 6B — Predation, crustacean as predator --------
+## Figure 5B — Predation, crustacean as predator --------
 
-fig6B_data <- data %>%
+fig5B_data <- data %>%
   filter(interaction == "Predation") %>%
   filter(!is.na(fish), !is.na(crustacean), !is.na(if_predation_who)) %>%
   filter(if_predation_who == "C") %>%
@@ -491,18 +491,33 @@ fig6B_data <- data %>%
   )
 
 save_sankey(
-  fig6B_data,
-  "B) Predation — crustacean as predator",
-  "figure6B_predation_crustacean.html",
-  "figure6B_predation_crustacean.png"
+  fig5B_data,
+  "B) Predation — macrocrustaceans as predators",
+  "figure5B_predation_crustacean.html",
+  "figure5B_predation_crustacean.png"
 )
 
-## Figure 5 Complete ----------------------
+## Figure 4 Complete ----------------------
+
+figure4_final <- image_append(
+  c(
+    image_read("figure4A_competition.png"),
+    image_read("figure4B_parasitism.png")
+  ),
+  stack = TRUE
+)
+
+image_write(
+  figure4_final,
+  "Figure_4_AB.png"
+)
+
+## Figure 5 Complete  ----------
 
 figure5_final <- image_append(
   c(
-    image_read("figure5A_competition.png"),
-    image_read("figure5B_parasitism.png")
+    image_read("figure5A_predation_fish.png"),
+    image_read("figure5B_predation_crustacean.png")
   ),
   stack = TRUE
 )
@@ -512,22 +527,7 @@ image_write(
   "Figure_5_AB.png"
 )
 
-## Figure 6 Complete  ----------
-
-figure6_final <- image_append(
-  c(
-    image_read("figure6A_predation_fish.png"),
-    image_read("figure6B_predation_crustacean.png")
-  ),
-  stack = TRUE
-)
-
-image_write(
-  figure6_final,
-  "Figure_6_AB.png"
-)
-
-# Figure 7 -------------------------------------------
+# Figure 6 -------------------------------------------
 data$status_fish = as.factor(data$status_fish)
 levels(data$status_fish)
 data$status_crust = as.factor(data$status_crust)
@@ -558,7 +558,7 @@ status_summary$interaction <- factor(
   levels = names(my_cols)
 )
 
-fig7 = ggplot(
+fig6 = ggplot(
   status_summary,
   aes(
     x = n_studies,
@@ -588,9 +588,9 @@ fig7 = ggplot(
   )+
   scale_x_continuous(expand = c(0,0))
 
-fig7
+fig6
 
-ggsave("Figure_7.jpg", fig7, dpi = 300)
+ggsave("Figure_6.jpg", fig6, dpi = 300)
 
 # Binomial test ----------------------
 data_glm <- data %>%
